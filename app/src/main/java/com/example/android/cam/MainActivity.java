@@ -1,5 +1,6 @@
 package com.example.android.cam;
 
+import android.Manifest;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -12,12 +13,15 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.MediaStore;
+import android.support.v4.content.FileProvider;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -25,19 +29,25 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 
 import static android.R.attr.id;
 import static android.provider.MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE;
 import static android.provider.MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO;
 
-@SuppressWarnings("deprecation")
+
 
 public class MainActivity extends AppCompatActivity {
     private Camera mCamera;
     private CameraPreview mPreview;
     private int cam=0;
     private String mcurrentPhoto;
+    private String mCurrentPhotoPath;
+    private Uri selectedImageUri;
+    ArrayList<String> files = new ArrayList<String>();// list of file paths
+    File[] listFile;
+
 
 
     @Override
@@ -59,26 +69,36 @@ public class MainActivity extends AppCompatActivity {
             builder.show();
 
         }
-        mCamera = getCameraInstance(cam);
+        ImageView img = (ImageView) findViewById(R.id.gallery);
+        img.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(getApplicationContext(),Main2Activity.class);
+                startActivity(intent);
+            }
+        });
+       /* mCamera = getCameraInstance(cam);
 
 
 
         mPreview = new CameraPreview(this, mCamera);
         FrameLayout preview = (FrameLayout) findViewById(R.id.camera_preview);
-        preview.addView(mPreview);
-        Button captureButton = (Button) findViewById(R.id.button_capture);
+        preview.addView(mPreview);*/
+        ImageView captureButton = (ImageView) findViewById(R.id.button_capture);
         captureButton.setOnClickListener(
                 new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
                         // get an image from the camera
 
-                        mCamera.takePicture(null, null, mPicture);
+                        //mCamera.takePicture(null, null, mPicture);
 
+
+                        cameraIntent();
                     }
                 }
         );
-        Button switchButton = (Button) findViewById(R.id.switch_cam);
+        ImageView switchButton = (ImageView) findViewById(R.id.switch_cam);
         switchButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -104,6 +124,9 @@ public class MainActivity extends AppCompatActivity {
 
 
 
+
+
+
     }
 
     private boolean checkCameraHardware(Context context) {
@@ -115,6 +138,8 @@ public class MainActivity extends AppCompatActivity {
             return false;
         }
     }
+
+
 
 
     public static Camera getCameraInstance(int cam){
@@ -132,6 +157,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onPictureTaken(final byte[] data, Camera camera) {
+
             AsyncTask.execute(new Runnable() {
                 @Override
                 public void run() {
@@ -190,17 +216,17 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onPostResume() {
         super.onPostResume();
-        mCamera = getCameraInstance(0);
+        /*mCamera = getCameraInstance(0);
         mPreview = new CameraPreview(this, mCamera);
         FrameLayout preview = (FrameLayout) findViewById(R.id.camera_preview);
-        preview.addView(mPreview);
+        preview.addView(mPreview);*/
 
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        releaseCamera();
+        //releaseCamera();
     }
 
     private void releaseCamera(){
@@ -209,11 +235,74 @@ public class MainActivity extends AppCompatActivity {
             mCamera = null;
         }
     }
+    private void cameraIntent(){
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+
+            File photoFile = null;
+            try {
+                photoFile = createImageFile();
+            } catch (IOException ex) {
+                Log.v("Error","IO Exception");
+
+            }
+
+            if (photoFile != null) {
+                Uri photoURI = FileProvider.getUriForFile(this,"com.example.android.fileprovider2",photoFile);
+                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
+                startActivityForResult(takePictureIntent, 0);
+            }
+        }
+
+
+
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (resultCode == RESULT_OK) {
+            if(data.getData() != null){
+                selectedImageUri = data.getData();
+            }
+            if (requestCode == 0 && resultCode == RESULT_OK) {
+
+
+                File f = new File(mCurrentPhotoPath);
+                selectedImageUri = Uri.fromFile(f);
+                ImageView imageView = (ImageView) findViewById(R.id.gallery);
+                imageView.setImageURI(selectedImageUri);
+                ImageView imageView1 = (ImageView) findViewById(R.id.img);
+                imageView1.setImageURI(selectedImageUri);
+
+
+            }
+
+
+        }
+
+    }
+
+    private File createImageFile() throws IOException {
+
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String imageFileName = "JPEG_" + timeStamp + "_";
+        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+        File image = File.createTempFile(
+                imageFileName,
+                ".jpg",
+                storageDir
+        );
+
+
+        mCurrentPhotoPath = image.getAbsolutePath();
+        return image;
+    }
 
     @Override
     protected void onStop() {
         super.onStop();
-        releaseCamera();
+        //releaseCamera();
     }
 
     private Uri getOutputMediaFileUri(int type){
@@ -263,7 +352,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    
+
 
 
 
